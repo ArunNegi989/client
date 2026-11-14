@@ -1,6 +1,7 @@
 "use client";
 import { getAllSlidersAPI } from "@/apis/slider.service";
 import { Button } from "@/components/ui/button";
+import { CountBadge, useCounts } from "@/context/CountContext";
 import logoImage from "@/public/gauraajnew1.png";
 import Image from "next/image";
 import Link from "next/link";
@@ -33,9 +34,18 @@ const marqueeItems = [
   "UPLIFTING WOMEN",
 ];
 
+// Chhota badge mobile icons ke liye
+const MobileCountBadge = ({ count }: { count: number }) =>
+  count > 0 ? (
+    <span className="absolute -top-2 -right-2 min-w-[16px] h-[16px] px-1 flex items-center justify-center text-[10px] font-semibold text-white bg-red-500 rounded-full border border-white">
+      {count > 99 ? "99+" : count}
+    </span>
+  ) : null;
+
 const HeroSection = () => {
   const pathname = usePathname();
   const router = useRouter();
+  const { cartCount, wishlistCount } = useCounts();
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearchInput, setShowSearchInput] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -225,11 +235,11 @@ const HeroSection = () => {
                   />
                   <div className="relative cursor-pointer group" onClick={() => router.push("/wishlist")}>
                     <AiOutlineHeart size={26} className="text-gray-700 hover:text-[#7A6E18] transition-colors duration-300" />
-                    <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full border-2 border-white animate-pulse group-hover:animate-none" />
+                    <CountBadge count={wishlistCount} />
                   </div>
                   <div className="relative cursor-pointer group" onClick={() => router.push("/add-to-cart")}>
                     <AiOutlineShoppingCart size={26} className="text-gray-700 hover:text-[#7A6E18] transition-colors duration-300" />
-                    <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full border-2 border-white animate-pulse group-hover:animate-none" />
+                    <CountBadge count={cartCount} />
                   </div>
                 </>
               ) : (
@@ -241,11 +251,11 @@ const HeroSection = () => {
                   />
                   <div className="relative cursor-pointer group" onClick={() => router.push("/wishlist")}>
                     <AiOutlineHeart size={26} className="text-gray-700 hover:text-[#7A6E18] transition-colors duration-300" />
-                    <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full border-2 border-white animate-pulse group-hover:animate-none" />
+                    <CountBadge count={wishlistCount} />
                   </div>
                   <div className="relative cursor-pointer group" onClick={() => router.push("/add-to-cart")}>
                     <AiOutlineShoppingCart size={26} className="text-gray-700 hover:text-[#7A6E18] transition-colors duration-300" />
-                    <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full border-2 border-white animate-pulse group-hover:animate-none" />
+                    <CountBadge count={cartCount} />
                   </div>
                 </>
               )}
@@ -260,11 +270,11 @@ const HeroSection = () => {
               />
               <div className="relative cursor-pointer" onClick={() => router.push("/wishlist")}>
                 <AiOutlineHeart size={22} className="text-gray-700 hover:text-[#7A6E18] transition-colors duration-300" />
-                <span className="absolute -top-1 -right-1 h-2.5 w-2.5 bg-red-500 rounded-full border-2 border-white" />
+                <MobileCountBadge count={wishlistCount} />
               </div>
               <div className="relative cursor-pointer" onClick={() => router.push("/add-to-cart")}>
                 <AiOutlineShoppingCart size={22} className="text-gray-700 hover:text-[#7A6E18] transition-colors duration-300" />
-                <span className="absolute -top-1 -right-1 h-2.5 w-2.5 bg-red-500 rounded-full border-2 border-white" />
+                <MobileCountBadge count={cartCount} />
               </div>
               <button
                 onClick={() => setMobileMenuOpen((prev) => !prev)}

@@ -1,22 +1,35 @@
 import axiosInstance from ".";
 
-export const addToWishListAPI = (productId) => {
-    const response = axiosInstance.post(`/users/wishlist`, {
-        productId: productId
-    })
+
+const notifyCountsChanged = () => {
+    if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("counts:refresh"));
+    }
+};
+
+export const addToWishListAPI = async (productId) => {
+    const response = await axiosInstance.post(`/users/wishlist`, {
+        productId: productId,
+    });
+    notifyCountsChanged();
     return response;
-}
+};
+
 export const getWishListAPI = () => {
-    const response = axiosInstance.get(`/users/wishlist`)
+    const response = axiosInstance.get(`/users/wishlist`);
     return response;
-}
-export const updateUserWishlistAPI = () => {
-    const response = axiosInstance.patch(`/users/wishlist`, {
-        productIds
-    })
+};
+
+export const updateUserWishlistAPI = async (productIds) => {
+    const response = await axiosInstance.patch(`/users/wishlist`, {
+        productIds,
+    });
+    notifyCountsChanged();
     return response;
-}
-export const deleteProductFromWishlistAPI = (productId) => {
-    const response = axiosInstance.delete(`/users/wishlist/${productId}`)
+};
+
+export const deleteProductFromWishlistAPI = async (productId) => {
+    const response = await axiosInstance.delete(`/users/wishlist/${productId}`);
+    notifyCountsChanged();
     return response;
-}
+};

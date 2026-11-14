@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  addToCartAPI,
-  deleteToCartAPI,
-} from "@/apis/addToCartAPIs";
+import { addToCartAPI } from "@/apis/addToCartAPIs";
 import {
   deleteProductFromWishlistAPI,
   getWishListAPI,
@@ -13,21 +10,21 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Heart, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { toast, ToastContainer } from "react-toastify";
+import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-// Updated WishlistItem interface
 interface WishlistItemProps {
   imageSrc: string;
   secondaryImageSrc: string;
   title: string;
-  price: string; // Price as $numberDecimal string
-  originalPrice?: number; // Calculated original price before discount
-  discount?: number; // Discount percentage
+  price: string;
+  originalPrice?: number;
+  discount?: number;
   productId: string;
   variantId: string;
-  isInCart: boolean;
   onRemove: () => void;
+  onMoveToCart: () => Promise<void>;
+  onBuyNow: () => Promise<void>;
 }
 
 const WishlistItem = ({
@@ -35,41 +32,35 @@ const WishlistItem = ({
   secondaryImageSrc,
   title,
   price,
-  originalPrice,
-  discount,
   productId,
-  variantId,
-  isInCart,
   onRemove,
+  onMoveToCart,
+  onBuyNow,
 }: WishlistItemProps) => {
   const router = useRouter();
   const [hovered, setHovered] = useState(false);
-  const [inCart, setInCart] = useState(isInCart);
+  const [moving, setMoving] = useState(false);
+  const [buying, setBuying] = useState(false);
 
-  const handleAddToCart = async () => {
+  const busy = moving || buying;
+
+  const handleMove = async () => {
+    if (busy) return;
+    setMoving(true);
     try {
-      const response = await addToCartAPI({
-        productId,
-        variantId,
-        quantity: 1,
-      });
-      setInCart(true);
-      toast.success(response?.data?.message || "Added to cart!");
-    } catch (error: any) {
-      toast.info(error?.response?.data?.message || "Failed to add to cart.");
+      await onMoveToCart();
+    } finally {
+      setMoving(false);
     }
   };
 
-  const handleRemoveFromCart = async () => {
+  const handleBuyNow = async () => {
+    if (busy) return;
+    setBuying(true);
     try {
-      const response = await deleteToCartAPI({
-        productId,
-        variantId,
-      });
-      setInCart(false);
-      toast.success(response?.data?.message || "Removed from cart!");
-    } catch (error: any) {
-      toast.info(error?.response?.data?.message || "Failed to remove from cart.");
+      await onBuyNow();
+    } finally {
+      setBuying(false);
     }
   };
 
@@ -87,11 +78,6 @@ const WishlistItem = ({
           className="w-full aspect-square object-cover rounded-t-xl transition-all duration-300"
           onClick={() => router.push(`/products/${productId}`)}
         />
-        {/* {discount && originalPrice && (
-          <div className="absolute top-2 left-2 bg-[#7A6E18]/90 text-white text-xs font-medium px-2 py-1 rounded-full shadow-sm">
-            -{discount}% (₹{((originalPrice - parseFloat(price)).toFixed(2))})
-          </div>
-        )} */}
         <button
           onClick={onRemove}
           className="absolute top-2 right-2 p-1 bg-white rounded-full shadow-sm text-red-500 hover:text-red-600 hover:scale-110 transition-all duration-300"
@@ -114,40 +100,43 @@ const WishlistItem = ({
             <span className="text-[#556b2f] font-bold text-sm">
               ₹{parseFloat(price).toFixed(2)}
             </span>
-            {/* {discount && originalPrice && (
-              <span className="text-gray-400 line-through text-xs">
-                ₹{originalPrice.toFixed(2)}
-              </span>
-            )} */}
           </div>
         </div>
-        <Button
-          className={`w-full rounded-full text-xs font-medium transition-all ${
-            inCart
-              ? "bg-red-500 text-white hover:bg-red-600"
-              : "bg-[#556b2f] text-white hover:bg-[#3c5216]"
-          }`}
-          onClick={inCart ? handleRemoveFromCart : handleAddToCart}
-        >
-          {inCart ? "Remove from Cart" : "Add to Cart"}
-        </Button>
+        <div className="space-y-2">
+          <Button
+            className="w-full rounded-full text-xs font-medium transition-all bg-[#556b2f] text-white hover:bg-[#3c5216] disabled:opacity-60"
+            onClick={handleMove}
+            disabled={busy}
+          >
+            {moving ? "Moving..." : "Move to Cart"}
+          </Button>
+          <Button
+            className="w-full rounded-full text-xs font-medium transition-all bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-60"
+            onClick={handleBuyNow}
+            disabled={busy}
+          >
+            {buying ? "Please wait..." : "Buy Now"}
+          </Button>
+        </div>
       </div>
     </div>
   );
 };
 
 const WishlistPage = () => {
+  const router = useRouter();
   const [wishlist, setWishlist] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Fetch wishlist data
-  const getWishList = async () => {
+  const getWishList = async (showLoader = true) => {
     try {
-      setLoading(true);
+      if (showLoader) setLoading(true);
       const response = await getWishListAPI();
       if (response.data && response.data.data) {
         setWishlist(response.data.data.product_id);
+        setError(null);
       } else {
         setError("No items found in your wishlist.");
       }
@@ -155,7 +144,7 @@ const WishlistPage = () => {
       console.error("Error fetching wishlist:", error);
       setError("Failed to fetch wishlist. Please try again later.");
     } finally {
-      setLoading(false);
+      if (showLoader) setLoading(false);
     }
   };
 
@@ -163,19 +152,62 @@ const WishlistPage = () => {
     getWishList();
   }, []);
 
-  // Function to remove an item from the wishlist
+  // Remove an item from the wishlist
   const removeFromWishlist = async (productId: string) => {
     try {
       await deleteProductFromWishlistAPI(productId);
+      setWishlist((prev) => prev.filter((item) => item._id !== productId));
       toast.success("Item removed from wishlist!");
-      getWishList(); // Refresh the wishlist
     } catch (error) {
       console.error("Error removing product:", error);
       toast.info("Failed to remove item. Please try again.");
     }
   };
 
-  // Function to get primary variant
+  // Move item: add to cart, then remove from wishlist
+  const moveToCart = async (productId: string, variantId: string) => {
+    try {
+      await addToCartAPI({ productId, variantId, quantity: 1 });
+    } catch (error: any) {
+      toast.info(error?.response?.data?.message || "Failed to add to cart.");
+      return;
+    }
+
+    try {
+      await deleteProductFromWishlistAPI(productId);
+    } catch (error) {
+      console.error("Added to cart but failed to remove from wishlist:", error);
+    }
+
+    setWishlist((prev) => prev.filter((item) => item._id !== productId));
+    toast.success("Moved to cart!");
+  };
+
+  // Buy now: add to cart, remove from wishlist, go to checkout
+  const buyNow = async (productId: string, variantId: string) => {
+    try {
+      await addToCartAPI({ productId, variantId, quantity: 1 });
+    } catch (error: any) {
+      const message: string = error?.response?.data?.message || "";
+      const alreadyInCart =
+        error?.response?.status === 409 || /already/i.test(message);
+
+      if (!alreadyInCart) {
+        toast.info(message || "Failed to proceed to checkout.");
+        return;
+      }
+    }
+
+    try {
+      await deleteProductFromWishlistAPI(productId);
+    } catch (error) {
+      console.error("Failed to remove from wishlist:", error);
+    }
+
+    router.push("/checkout");
+  };
+
+  // Get primary variant
   const getPrimaryVariant = (variants: any[]) => {
     const activeDiscountVariant = variants.find(
       (v) => v.discount?.active && v.discount?.value
@@ -197,11 +229,12 @@ const WishlistPage = () => {
             <div
               key={index}
               className="bg-white rounded-xl shadow-sm overflow-hidden animate-pulse border border-gray-100"
-     >
+            >
               <Skeleton className="w-full aspect-square rounded-t-xl" />
               <div className="p-3 space-y-2">
                 <Skeleton className="h-3 w-3/4" />
                 <Skeleton className="h-4 w-1/2" />
+                <Skeleton className="h-8 w-full rounded-full" />
                 <Skeleton className="h-8 w-full rounded-full" />
               </div>
             </div>
@@ -255,8 +288,11 @@ const WishlistPage = () => {
                     discount={discount}
                     productId={item._id}
                     variantId={primaryVariant._id}
-                    isInCart={item.inCart || false}
                     onRemove={() => removeFromWishlist(item._id)}
+                    onMoveToCart={() =>
+                      moveToCart(item._id, primaryVariant._id)
+                    }
+                    onBuyNow={() => buyNow(item._id, primaryVariant._id)}
                   />
                 );
               })
@@ -289,20 +325,6 @@ const WishlistPage = () => {
           )}
         </>
       )}
-
-      {/* Toast Container */}
-      <ToastContainer
-        position="top-center"
-        autoClose={3000}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-        theme="light"
-      />
     </div>
   );
 };

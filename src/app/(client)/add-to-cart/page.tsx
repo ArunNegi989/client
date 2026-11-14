@@ -9,6 +9,7 @@ import { calculateShippingChargesAPI } from "@/apis/orderAPIs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useCounts } from "@/context/CountContext";
 import { Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
@@ -144,6 +145,7 @@ const AddToCartPage: React.FC = () => {
   );
   const [isCalculatingShipping, setIsCalculatingShipping] = useState(false);
   const router = useRouter();
+  const { refreshCounts } = useCounts();
 
   const getAllCartProducts = async () => {
     setLoading(true);
@@ -210,6 +212,7 @@ const AddToCartPage: React.FC = () => {
     try {
       await deleteToCartAPI({ productId, variantId });
       await getAllCartProducts();
+      refreshCounts();
       toast.success("Item removed from cart!");
     } catch (error) {
       console.error("Error removing item:", error);

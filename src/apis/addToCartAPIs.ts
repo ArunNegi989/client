@@ -1,7 +1,14 @@
 import axiosInstance from ".";
 
+
+const notifyCountsChanged = () => {
+    if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("counts:refresh"));
+    }
+};
+
 // Add product to cart with variantId
-export const addToCartAPI = ({
+export const addToCartAPI = async ({
     productId,
     variantId,
     quantity,
@@ -10,9 +17,10 @@ export const addToCartAPI = ({
     variantId: string;
     quantity: number;
 }) => {
-    const response = axiosInstance.post(`/cart/${productId}/${variantId}`, {
+    const response = await axiosInstance.post(`/cart/${productId}/${variantId}`, {
         quantity,
     });
+    notifyCountsChanged();
     return response;
 };
 
@@ -23,19 +31,20 @@ export const getAddToCartProductsAPI = () => {
 };
 
 // Delete product from cart with variantId
-export const deleteToCartAPI = ({
+export const deleteToCartAPI = async ({
     productId,
     variantId,
 }: {
     productId: string;
     variantId: string;
 }) => {
-    const response = axiosInstance.delete(`/cart/${productId}/${variantId}`);
+    const response = await axiosInstance.delete(`/cart/${productId}/${variantId}`);
+    notifyCountsChanged();
     return response;
 };
 
 // Update product quantity in cart with variantId
-export const updateToCartAPI = ({
+export const updateToCartAPI = async ({
     productId,
     variantId,
     quantity,
@@ -44,8 +53,9 @@ export const updateToCartAPI = ({
     variantId: string;
     quantity: number;
 }) => {
-    const response = axiosInstance.put(`/cart/${productId}/${variantId}`, {
+    const response = await axiosInstance.put(`/cart/${productId}/${variantId}`, {
         quantity,
     });
+    notifyCountsChanged();
     return response;
 };

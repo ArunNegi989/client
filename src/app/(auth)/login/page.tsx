@@ -10,6 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useCounts } from "@/context/CountContext";
 import {
   ConfirmationResult,
   RecaptchaVerifier,
@@ -61,6 +62,7 @@ const saveTokens = (token: string) => {
 
 const LoginPage = () => {
   const router = useRouter();
+  const { refreshCounts } = useCounts();
 
   const [loginMode, setLoginMode] = useState<LoginMode>("password");
   const [showPassword, setShowPassword] = useState(false);
@@ -152,6 +154,7 @@ const LoginPage = () => {
         }
 
         saveTokens(token);
+        await refreshCounts();
         toast.success("Login successful!", { position: "top-center" });
         router.replace("/");
       } else {
@@ -258,6 +261,7 @@ const LoginPage = () => {
   //       }
   //
   //       saveTokens(token);
+  //       await refreshCounts();
   //       toast.success("Login successful!", { position: "top-center" });
   //       router.replace("/");
   //     } else {

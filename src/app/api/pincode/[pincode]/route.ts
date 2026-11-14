@@ -1,7 +1,6 @@
 // app/api/pincode/[pincode]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 
-// Define the response type for the external API
 interface PincodeResponse {
   Message: string;
   Status: string;
@@ -13,15 +12,14 @@ interface PincodeResponse {
   }>;
 }
 
-// Define the params type for the dynamic route
-interface RouteParams {
-  params: {
+interface RouteContext {
+  params: Promise<{
     pincode: string;
-  };
+  }>;
 }
 
-export async function GET(request: NextRequest, context: any) {
-  const { pincode } = context.params;
+export async function GET(request: NextRequest, context: RouteContext) {
+  const { pincode } = await context.params;
 
   if (!/^\d{6}$/.test(pincode)) {
     return NextResponse.json({ error: "Invalid PIN code" }, { status: 400 });

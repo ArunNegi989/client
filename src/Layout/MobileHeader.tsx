@@ -1,5 +1,6 @@
 "use client";
 
+import { CountBadge, useCounts } from "@/context/CountContext";
 import { Heart, Home, List, ShoppingBag, Store, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -7,6 +8,7 @@ import { useEffect, useState } from "react";
 
 const MobileNavBar = () => {
   const pathname = usePathname();
+  const { cartCount, wishlistCount } = useCounts();
   const [isScrolled, setIsScrolled] = useState(false);
   const isHomePage = pathname === "/";
 
@@ -15,17 +17,17 @@ const MobileNavBar = () => {
     const isActive = pathname === path;
     return `flex flex-col items-center transition-all duration-300 ${
       isActive
-        ? "text-[#7A6E18] scale-110" // Active state with scale effect
+        ? "text-[#7A6E18] scale-110"
         : isScrolled || !isHomePage
-        ? "text-gray-600 hover:text-[#7A6E18] hover:scale-105" // Default state when scrolled or not on home
-        : "text-white hover:text-[#7A6E18] hover:scale-105 bg-transprint" // Default state on home page
+        ? "text-gray-600 hover:text-[#7A6E18] hover:scale-105"
+        : "text-white hover:text-[#7A6E18] hover:scale-105 bg-transprint"
     }`;
   };
 
   // Effect to handle scroll event
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50); // Trigger at 50px for smoother transition
+      setIsScrolled(window.scrollY > 50);
     };
 
     window.addEventListener("scroll", handleScroll);
@@ -92,7 +94,7 @@ const MobileNavBar = () => {
       <Link href={"/wishlist"}>
         <div className={getLinkClass("/wishlist")}>
           <div
-            className={`p-2 rounded-full ${
+            className={`relative p-2 rounded-full ${
               pathname === "/wishlist"
                 ? "bg-[#7A6E18]/20 text-[#7A6E18]"
                 : "group-hover:bg-[#7A6E18]/10"
@@ -103,6 +105,7 @@ const MobileNavBar = () => {
               strokeWidth={pathname === "/wishlist" ? 2.5 : 2}
               fill={pathname === "/wishlist" ? "currentColor" : "none"}
             />
+            <CountBadge count={wishlistCount} />
           </div>
           <span className="text-xs md:text-sm mt-1 font-medium">Wishlist</span>
         </div>
@@ -128,13 +131,14 @@ const MobileNavBar = () => {
       <Link href={"/add-to-cart"}>
         <div className={getLinkClass("/add-to-cart")}>
           <div
-            className={`p-2 rounded-full ${
+            className={`relative p-2 rounded-full ${
               pathname === "/add-to-cart"
                 ? "bg-[#7A6E18]/20 text-[#7A6E18]"
                 : "group-hover:bg-[#7A6E18]/10"
             } transition-colors duration-300`}
           >
             <ShoppingBag size={26} strokeWidth={pathname === "/add-to-cart" ? 2.5 : 2} />
+            <CountBadge count={cartCount} />
           </div>
           <span className="text-xs md:text-sm mt-1 font-medium">Cart</span>
         </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { getAddToCartProductsAPI } from "@/apis/addToCartAPIs";
+import { deleteToCartAPI, getAddToCartProductsAPI } from "@/apis/addToCartAPIs";
 import { calculateShippingChargesAPI, createOrderAPI } from "@/apis/orderAPIs";
 import { verifyPaymentAPI } from "@/apis/paymentAPIs";
 import { getUserProfileAPI } from "@/apis/userProfile";
@@ -253,6 +253,15 @@ const CheckoutPage = () => {
     fetchShippingCharges();
   }, [formik.values.postalCode, cartItems, paymentMethod]);
 
+  
+  const clearOrderedItemsFromCart = async () => {
+    await Promise.allSettled(
+      cartItems.map((item) =>
+        deleteToCartAPI({ productId: item.id, variantId: item.variantId })
+      )
+    );
+  };
+
   const handlePlaceOrder = async (values: typeof formik.values) => {
     setLoading(true);
     try {
@@ -306,6 +315,7 @@ const CheckoutPage = () => {
           courierName: selectedCourier?.courierName || "",
         });
         if (verifyResponse.data.success) {
+          await clearOrderedItemsFromCart();
           toast.success("Order placed successfully!");
           router.push(`/order-confirmation/${orderId}`);
         } else {
@@ -352,6 +362,7 @@ const CheckoutPage = () => {
             });
 
             if (verifyResponse.data.success) {
+              await clearOrderedItemsFromCart();
               toast.success("Payment successful!");
               router.push(`/order-confirmation/${orderId}`);
               resolve(true);

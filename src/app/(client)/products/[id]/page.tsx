@@ -16,6 +16,7 @@ import {
     addToWishListAPI,
     deleteProductFromWishlistAPI,
 } from "@/apis/wishlistAPIs";
+import { useCounts } from "@/context/CountContext";
 import ProductDetails from "@/Layout/ProductDetails/ProductDetails";
 import ProductImageCarousel from "@/Layout/ProductDetails/ProductImageCarousel";
 import ReviewsSection from "@/Layout/ProductDetails/ReviewsSection";
@@ -264,6 +265,7 @@ const ProductDetailPage = ({ params }: ProductDetailPageProps) => {
   const [subCategoryProducts, setSubCategoryProducts] = useState<Product[]>([]);
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const router = useRouter();
+  const { refreshCounts } = useCounts();
 
   // Fetch product details
   const fetchProduct = useCallback(async () => {
@@ -344,6 +346,7 @@ const ProductDetailPage = ({ params }: ProductDetailPageProps) => {
       setProduct((prevProduct) =>
         prevProduct ? { ...prevProduct, inWishlist: true } : null
       );
+      refreshCounts();
     } catch (error: any) {
       toast.error(
         error.response?.data?.message ||
@@ -351,7 +354,7 @@ const ProductDetailPage = ({ params }: ProductDetailPageProps) => {
       );
       console.error("Error adding to wishlist:", error);
     }
-  }, [product]);
+  }, [product, refreshCounts]);
 
   // Remove from wishlist
   const deleteProductFromWishlist = useCallback(async () => {
@@ -363,6 +366,7 @@ const ProductDetailPage = ({ params }: ProductDetailPageProps) => {
       setProduct((prevProduct) =>
         prevProduct ? { ...prevProduct, inWishlist: false } : null
       );
+      refreshCounts();
     } catch (error: any) {
       toast.error(
         error.response?.data?.message ||
@@ -370,7 +374,7 @@ const ProductDetailPage = ({ params }: ProductDetailPageProps) => {
       );
       console.error("Error removing from wishlist:", error);
     }
-  }, [product]);
+  }, [product, refreshCounts]);
 
   // Add to cart
   const addToCart = useCallback(async () => {
@@ -389,6 +393,7 @@ const ProductDetailPage = ({ params }: ProductDetailPageProps) => {
       setProduct((prevProduct) =>
         prevProduct ? { ...prevProduct, inCart: true } : null
       );
+      refreshCounts();
     } catch (error: any) {
       toast.error(
         error.response?.data?.message ||
@@ -396,7 +401,7 @@ const ProductDetailPage = ({ params }: ProductDetailPageProps) => {
       );
       console.error("Error adding to cart:", error);
     }
-  }, [product, selectedVariantId]);
+  }, [product, selectedVariantId, refreshCounts]);
 
   // Buy now
   const buyNow = useCallback(async () => {
@@ -411,6 +416,7 @@ const ProductDetailPage = ({ params }: ProductDetailPageProps) => {
         variantId: selectedVariantId,
         quantity: 1,
       });
+      refreshCounts();
       router.push("/checkout");
     } catch (error: any) {
       toast.error(
@@ -419,7 +425,7 @@ const ProductDetailPage = ({ params }: ProductDetailPageProps) => {
       );
       console.error("Error during Buy Now:", error);
     }
-  }, [product, selectedVariantId, router]);
+  }, [product, selectedVariantId, router, refreshCounts]);
 
   // Fetch products by subcategory
   const fetchAllProductsBySubCategory = useCallback(
