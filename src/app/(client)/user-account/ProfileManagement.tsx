@@ -150,8 +150,7 @@ export default function ProfileManagement() {
     fetchProfile();
   }, [profileForm]);
 
-  // Fetch city and state from PIN code via the Next.js proxy route.
-  // NOTE: this route must stay outside /api because /api is proxied to the Express backend.
+  // Fetch city and state from PIN code via the backend API
   const fetchCityStateFromPincode = async (pincode: string) => {
     if (!/^\d{6}$/.test(pincode)) return;
 
@@ -159,7 +158,7 @@ export default function ProfileManagement() {
     setPincodeLoading(true);
 
     try {
-      const response = await fetch(`/pincode-lookup/${pincode}`, {
+      const response = await fetch(`/api/pincode/${pincode}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -184,9 +183,10 @@ export default function ProfileManagement() {
         result.PostOffice.length > 0
       ) {
         const postOffice = result.PostOffice[0];
-        profileForm.setValue("shoppingAddress.city", postOffice.District);
-        profileForm.setValue("shoppingAddress.state", postOffice.State);
-        profileForm.setValue("shoppingAddress.country", "India");
+        const options = { shouldDirty: true, shouldValidate: true };
+        profileForm.setValue("shoppingAddress.city", postOffice.District, options);
+        profileForm.setValue("shoppingAddress.state", postOffice.State, options);
+        profileForm.setValue("shoppingAddress.country", "India", options);
       } else {
         toast.info("Invalid PIN code or no data found");
         profileForm.setValue("shoppingAddress.city", "");
