@@ -11,7 +11,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useFormik } from "formik";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import PhoneInput, { isValidPhoneNumber } from "react-phone-number-input";
 import "react-phone-number-input/style.css";
 import { toast } from "react-toastify";
@@ -64,7 +64,7 @@ interface PincodeResponse {
     District: string;
     State: string;
     Pincode: string;
-  }>;
+  }> | null;
 }
 
 const CheckoutPage = () => {
@@ -77,6 +77,9 @@ const CheckoutPage = () => {
   const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
   const [selectedCourier, setSelectedCourier] = useState<ShippingOption | null>(null);
   const [pincodeLoading, setPincodeLoading] = useState(false);
+
+  // Keeps track of the latest requested pincode to ignore stale responses
+  const latestPincodeRef = useRef<string>("");
 
   const formik = useFormik({
     initialValues: {
@@ -114,23 +117,39 @@ const CheckoutPage = () => {
     },
   });
 
-  // Function to fetch city and state from PIN code via proxy API
+  // Fetch city and state from PIN code via the proxy API route
   const fetchCityStateFromPincode = async (pincode: string) => {
     if (!/^\d{6}$/.test(pincode)) return;
 
+    latestPincodeRef.current = pincode;
     setPincodeLoading(true);
+
     try {
-      const response = await fetch(`/pincode-lookup/${pincode}`, {
+      const response = await fetch(`/api/pincode-lookup/${pincode}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
         },
       });
 
+      if (!response.ok) {
+        throw new Error(`Pincode API error: ${response.status}`);
+      }
+
       const data: PincodeResponse[] = await response.json();
 
-      if (data[0].Status === "Success" && data[0].PostOffice.length > 0) {
-        const postOffice = data[0].PostOffice[0];
+      // Ignore this response if the user already changed the pincode
+      if (latestPincodeRef.current !== pincode) return;
+
+      const result = data?.[0];
+
+      if (
+        result &&
+        result.Status === "Success" &&
+        result.PostOffice &&
+        result.PostOffice.length > 0
+      ) {
+        const postOffice = result.PostOffice[0];
         formik.setFieldValue("city", postOffice.District);
         formik.setFieldValue("state", postOffice.State);
       } else {
@@ -140,11 +159,15 @@ const CheckoutPage = () => {
       }
     } catch (error) {
       console.error("Error fetching PIN code data:", error);
-      toast.info("Failed to fetch city and state");
-      formik.setFieldValue("city", "");
-      formik.setFieldValue("state", "");
+      if (latestPincodeRef.current === pincode) {
+        toast.info("Failed to fetch city and state");
+        formik.setFieldValue("city", "");
+        formik.setFieldValue("state", "");
+      }
     } finally {
-      setPincodeLoading(false);
+      if (latestPincodeRef.current === pincode) {
+        setPincodeLoading(false);
+      }
     }
   };
 
@@ -161,6 +184,8 @@ const CheckoutPage = () => {
         setProfile(profileData);
 
         if (profileData) {
+          // Setting postalCode here triggers the pincode useEffect below,
+          // which fills city and state automatically.
           formik.setValues({
             name: `${profileData.first_name || ""} ${profileData.last_name || ""}`.trim(),
             addressLine1: profileData?.shoppingAddress?.addressLine1 || "",
@@ -169,11 +194,6 @@ const CheckoutPage = () => {
             postalCode: profileData.shoppingAddress?.postalCode || "",
             phone: profileData.phone || "",
           });
-
-          // Fetch city and state if postalCode exists in profile
-          if (profileData.shoppingAddress?.postalCode) {
-            await fetchCityStateFromPincode(profileData.shoppingAddress.postalCode);
-          }
         }
 
         const mappedItems = cartRes.data.data.products.map((item: any) => ({
@@ -200,7 +220,7 @@ const CheckoutPage = () => {
     fetchData();
   }, []);
 
-  // Handle PIN code changes
+  // Runs on page load (after profile fills the pincode) and on every pincode change
   useEffect(() => {
     const pincode = formik.values.postalCode.trim();
     if (pincode.length === 6) {
@@ -253,7 +273,6 @@ const CheckoutPage = () => {
     fetchShippingCharges();
   }, [formik.values.postalCode, cartItems, paymentMethod]);
 
-  
   const clearOrderedItemsFromCart = async () => {
     await Promise.allSettled(
       cartItems.map((item) =>
