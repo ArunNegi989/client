@@ -151,6 +151,8 @@ export default function ProfileManagement() {
   }, [profileForm]);
 
   // Fetch city and state from PIN code via the backend API
+   // Fetch city and state from PIN code via the Next.js proxy route.
+  // NOTE: this route must stay outside /api because /api is proxied to the Express backend.
   const fetchCityStateFromPincode = async (pincode: string) => {
     if (!/^\d{6}$/.test(pincode)) return;
 
@@ -158,7 +160,7 @@ export default function ProfileManagement() {
     setPincodeLoading(true);
 
     try {
-      const response = await fetch(`/api/pincode/${pincode}`, {
+      const response = await fetch(`/pincode-lookup/${pincode}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
