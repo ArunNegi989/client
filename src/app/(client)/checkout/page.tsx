@@ -117,7 +117,8 @@ const CheckoutPage = () => {
     },
   });
 
-  // Fetch city and state from PIN code via the proxy API route
+  // Fetch city and state from PIN code via the Next.js proxy route.
+  // NOTE: this route must stay outside /api because /api is proxied to the Express backend.
   const fetchCityStateFromPincode = async (pincode: string) => {
     if (!/^\d{6}$/.test(pincode)) return;
 
@@ -125,7 +126,7 @@ const CheckoutPage = () => {
     setPincodeLoading(true);
 
     try {
-      const response = await fetch(`/api/pincode-lookup/${pincode}`, {
+      const response = await fetch(`/pincode-lookup/${pincode}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",

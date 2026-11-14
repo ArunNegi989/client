@@ -1,4 +1,3 @@
-// app/api/pincode/[pincode]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 
 interface PincodeResponse {
@@ -9,7 +8,7 @@ interface PincodeResponse {
     District: string;
     State: string;
     Pincode: string;
-  }>;
+  }> | null;
 }
 
 interface RouteContext {
@@ -25,41 +24,35 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: "Invalid PIN code" }, { status: 400 });
   }
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
+
   try {
-    const response = await fetch(`https://api.postalpincode.in/pincode/${pincode}`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
+    const response = await fetch(
+      `https://api.postalpincode.in/pincode/${pincode}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        signal: controller.signal,
+        next: { revalidate: 60 * 60 * 24 },
+      }
+    );
 
     if (!response.ok) {
       throw new Error(`External API error: ${response.status}`);
     }
 
     const data: PincodeResponse[] = await response.json();
-
-    // Set CORS headers
-    const headers = {
-      "Access-Control-Allow-Origin": process.env.NEXT_PUBLIC_FRONTEND_URL || "http://localhost:3000",
-      "Access-Control-Allow-Methods": "GET, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-    };
-
-    return NextResponse.json(data, { headers });
+    return NextResponse.json(data);
   } catch (error) {
     console.error("Error fetching PIN code data:", error);
-    return NextResponse.json({ error: "Failed to fetch PIN code data" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch PIN code data" },
+      { status: 500 }
+    );
+  } finally {
+    clearTimeout(timeoutId);
   }
-}
-
-export async function OPTIONS() {
-  return new NextResponse(null, {
-    status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": process.env.NEXT_PUBLIC_FRONTEND_URL || "http://localhost:3000",
-      "Access-Control-Allow-Methods": "GET, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-    },
-  });
 }

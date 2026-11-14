@@ -21,7 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import PhoneInput from "react-phone-number-input"; // Added react-phone-number-input
 import "react-phone-number-input/style.css"; // Import default styles
@@ -36,7 +36,7 @@ interface PincodeResponse {
     District: string;
     State: string;
     Pincode: string;
-  }>;
+  }> | null;
 }
 
 interface UserProfile {
@@ -120,6 +120,9 @@ export default function ProfileManagement() {
   const [isLoading, setIsLoading] = useState(true);
   const [isActionLoading, setIsActionLoading] = useState(false);
 
+  // Keeps track of the latest requested pincode to ignore stale responses
+  const latestPincodeRef = useRef<string>("");
+
   const profileForm = useForm({
     resolver: yupResolver(profileSchema),
     defaultValues: userProfile,
@@ -147,22 +150,40 @@ export default function ProfileManagement() {
     fetchProfile();
   }, [profileForm]);
 
+  // Fetch city and state from PIN code via the Next.js proxy route.
+  // NOTE: this route must stay outside /api because /api is proxied to the Express backend.
   const fetchCityStateFromPincode = async (pincode: string) => {
     if (!/^\d{6}$/.test(pincode)) return;
 
+    latestPincodeRef.current = pincode;
     setPincodeLoading(true);
+
     try {
-      const response = await fetch(`/api/pincode/${pincode}`, {
+      const response = await fetch(`/pincode-lookup/${pincode}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
         },
       });
 
+      if (!response.ok) {
+        throw new Error(`Pincode API error: ${response.status}`);
+      }
+
       const data: PincodeResponse[] = await response.json();
 
-      if (data[0].Status === "Success" && data[0].PostOffice.length > 0) {
-        const postOffice = data[0].PostOffice[0];
+      // Ignore this response if the user already changed the pincode
+      if (latestPincodeRef.current !== pincode) return;
+
+      const result = data?.[0];
+
+      if (
+        result &&
+        result.Status === "Success" &&
+        result.PostOffice &&
+        result.PostOffice.length > 0
+      ) {
+        const postOffice = result.PostOffice[0];
         profileForm.setValue("shoppingAddress.city", postOffice.District);
         profileForm.setValue("shoppingAddress.state", postOffice.State);
         profileForm.setValue("shoppingAddress.country", "India");
@@ -173,20 +194,26 @@ export default function ProfileManagement() {
       }
     } catch (error) {
       console.error("Error fetching PIN code data:", error);
-      toast.info("Failed to fetch city and state");
-      profileForm.setValue("shoppingAddress.city", "");
-      profileForm.setValue("shoppingAddress.state", "");
+      if (latestPincodeRef.current === pincode) {
+        toast.info("Failed to fetch city and state");
+        profileForm.setValue("shoppingAddress.city", "");
+        profileForm.setValue("shoppingAddress.state", "");
+      }
     } finally {
-      setPincodeLoading(false);
+      if (latestPincodeRef.current === pincode) {
+        setPincodeLoading(false);
+      }
     }
   };
 
+  const postalCodeValue = profileForm.watch("shoppingAddress.postalCode");
+
   useEffect(() => {
-    const postalCode = profileForm.watch("shoppingAddress.postalCode");
-    if (postalCode && postalCode.length === 6) {
+    const postalCode = (postalCodeValue || "").trim();
+    if (postalCode.length === 6) {
       fetchCityStateFromPincode(postalCode);
     }
-  }, [profileForm.watch("shoppingAddress.postalCode")]);
+  }, [postalCodeValue]);
 
   const handleUpdateProfile = async (data: UserProfile | any) => {
     try {
