@@ -1,7 +1,8 @@
 "use client";
 
+import { getUserProfileAPI } from "@/apis/userProfile";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import OrderHistory from "./OrderHistory";
 import ProfileManagement from "./ProfileManagement";
 
@@ -37,6 +38,29 @@ export default function UserAccount() {
       postalCode: "",
     },
   });
+
+  // Profile fetch karo taaki OrderHistory ko address mil sake
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const res = await getUserProfileAPI();
+        const data = res?.data?.data;
+        if (data) {
+          setUserProfile((prev) => ({
+            ...prev,
+            ...data,
+            shoppingAddress: {
+              ...prev.shoppingAddress,
+              ...(data.shoppingAddress || {}),
+            },
+          }));
+        }
+      } catch (error) {
+        console.error("Failed to fetch profile:", error);
+      }
+    };
+    fetchProfile();
+  }, []);
 
   return (
     <div className="container mar mx-auto py-12 sm:py-16 md:py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-white to-gray-50 min-h-screen">

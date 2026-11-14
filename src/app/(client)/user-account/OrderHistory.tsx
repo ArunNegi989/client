@@ -31,7 +31,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton"; // Added shadcn skeleton
+import { Skeleton } from "@/components/ui/skeleton";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { addDays, format } from "date-fns";
 import Image from "next/image";
@@ -40,7 +40,6 @@ import { useForm } from "react-hook-form";
 import { toast } from "react-toastify";
 import * as yup from "yup";
 
-// Interfaces remain the same as in your original code
 interface Product {
   productId: {
     _id: string;
@@ -68,6 +67,15 @@ interface Payment {
   refundDetails: { refundId: string | null };
 }
 
+interface AddressLike {
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  postalCode?: string;
+}
+
 interface Order {
   _id: string;
   user_id: string;
@@ -81,7 +89,8 @@ interface Order {
   orderStatus: string;
   shippingStatus: string;
   products: Product[];
-  shippingAddressId: string | null;
+  shippingAddressId: string | AddressLike | null;
+  shippingAddress?: AddressLike;
   paymentMethod: number;
   estimatedDeliveryDays: number;
   courierService: string;
@@ -149,6 +158,37 @@ interface OrderHistoryProps {
   userProfile: UserProfile;
 }
 
+// API kabhi { success, data } deta hai, kabhi axios response { data: { success, data } }
+const unwrap = (res: any) => (res?.success !== undefined ? res : res?.data);
+const isSuccess = (res: any) => Boolean(unwrap(res)?.success);
+
+const formatAddress = (addr?: AddressLike | null) => {
+  if (!addr) return "";
+  return [
+    addr.addressLine1,
+    addr.addressLine2,
+    addr.city,
+    addr.state,
+    addr.country,
+    addr.postalCode,
+  ]
+    .filter((part) => part && String(part).trim() !== "")
+    .join(", ");
+};
+
+// Pehle order ka apna address, nahi mila to profile ka address
+const getOrderAddress = (order: Order, profile?: UserProfile) => {
+  const fromOrder =
+    formatAddress(order.shippingAddress) ||
+    (order.shippingAddressId && typeof order.shippingAddressId === "object"
+      ? formatAddress(order.shippingAddressId)
+      : "");
+  if (fromOrder) return fromOrder;
+
+  const fromProfile = formatAddress(profile?.shoppingAddress);
+  return fromProfile || "Not provided";
+};
+
 // Skeleton Loader Component
 const OrderSkeleton = () => (
   <Card className="shadow-md rounded-lg border border-gray-100">
@@ -186,8 +226,8 @@ export default function OrderHistory({ userProfile }: OrderHistoryProps) {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [trackingData, setTrackingData] = useState<TrackingData | null>(null);
   const [isClient, setIsClient] = useState(false);
-  const [isLoading, setIsLoading] = useState(true); // Added loading state
-  const [isActionLoading, setIsActionLoading] = useState(false); // Added action loading state
+  const [isLoading, setIsLoading] = useState(true);
+  const [isActionLoading, setIsActionLoading] = useState(false);
 
   const returnExchangeForm = useForm<ReturnExchangeFormData>({
     resolver: yupResolver(returnExchangeSchema),
@@ -201,8 +241,11 @@ export default function OrderHistory({ userProfile }: OrderHistoryProps) {
       try {
         setIsLoading(true);
         const ordersResponse = await getUserOrdersAPI();
-        if (ordersResponse.success) {
-          setOrders(ordersResponse.data?.orders || []);
+        const body = unwrap(ordersResponse);
+        if (body?.success) {
+          setOrders(body?.data?.orders || body?.orders || []);
+        } else {
+          console.warn("Unexpected orders response:", ordersResponse);
         }
       } catch (error) {
         console.error("Failed to fetch orders:", error);
@@ -219,7 +262,7 @@ export default function OrderHistory({ userProfile }: OrderHistoryProps) {
     try {
       setIsActionLoading(true);
       const response = await cancelOrderAPI(orderId);
-      if (response.success) {
+      if (isSuccess(response)) {
         setOrders(
           orders.map((o) =>
             o._id === orderId ? { ...o, orderStatus: "Cancelled" } : o
@@ -244,7 +287,7 @@ export default function OrderHistory({ userProfile }: OrderHistoryProps) {
         data.reason,
         data.products || []
       );
-      if (response.success) {
+      if (isSuccess(response)) {
         setOrders(
           orders.map((o) =>
             o._id === selectedOrder._id
@@ -273,7 +316,7 @@ export default function OrderHistory({ userProfile }: OrderHistoryProps) {
         data.reason,
         data.products || []
       );
-      if (response.success) {
+      if (isSuccess(response)) {
         setOrders(
           orders.map((o) =>
             o._id === selectedOrder._id
@@ -297,17 +340,16 @@ export default function OrderHistory({ userProfile }: OrderHistoryProps) {
     try {
       setIsActionLoading(true);
       const response = await trackOrderAPI(orderId);
-      if (response.success) {
-        setTrackingData(response.data);
+      const body = unwrap(response);
+      if (body?.success) {
+        setTrackingData(body.data);
         setSelectedOrder(orders.find((o) => o._id === orderId) || null);
         toast.success("Tracking details retrieved!");
       } else {
-        // Show toast if API response indicates failure
         toast.info("Tracking data is not available.");
       }
     } catch (error) {
       console.error("Failed to track order:", error);
-      // Show toast for any error during API call
       toast.info("Tracking data is not available.");
     } finally {
       setIsActionLoading(false);
@@ -336,7 +378,7 @@ export default function OrderHistory({ userProfile }: OrderHistoryProps) {
         ) : orders?.length > 0 ? (
           orders.map((order) => {
             const estimatedDeliveryDate = format(
-              addDays(new Date(order.orderDate), order.estimatedDeliveryDays),
+              addDays(new Date(order.orderDate), order.estimatedDeliveryDays || 0),
               "yyyy-MM-dd"
             );
 
@@ -403,17 +445,7 @@ export default function OrderHistory({ userProfile }: OrderHistoryProps) {
                       Shipping Address:
                     </p>
                     <p className="text-xs sm:text-sm text-gray-600 leading-relaxed">
-                      {order.shippingAddressId
-                        ? `${userProfile?.shoppingAddress?.addressLine1}${
-                            userProfile?.shoppingAddress?.addressLine2
-                              ? ", " + userProfile.shoppingAddress.addressLine2
-                              : ""
-                          }, ${userProfile?.shoppingAddress?.city}, ${
-                            userProfile?.shoppingAddress?.state
-                          }, ${userProfile?.shoppingAddress?.country}, ${
-                            userProfile?.shoppingAddress?.postalCode
-                          }`
-                        : "Not provided"}
+                      {getOrderAddress(order, userProfile)}
                     </p>
                   </div>
 

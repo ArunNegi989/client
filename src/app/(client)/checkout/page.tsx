@@ -120,7 +120,7 @@ const CheckoutPage = () => {
 
     setPincodeLoading(true);
     try {
-      const response = await fetch(`/api/pincode/${pincode}`, {
+      const response = await fetch(`/pincode-lookup/${pincode}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
